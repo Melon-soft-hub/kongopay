@@ -60,13 +60,26 @@ jobs:
           ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=armeabi-v7a
           cp app/build/outputs/apk/release/app-release.apk ../Trans-nayo-32bits.apk
 
+      # APK x86_64 réservé au test : l'émulateur (processeur Intel) ne sait pas traduire
+      # toutes les instructions ARM du moteur JavaScript Hermes. Même code, même configuration.
+      - name: Compiler l'APK de test pour l'émulateur (x86_64)
+        working-directory: trans-nayo/android
+        run: |
+          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=x86_64
+          cp app/build/outputs/apk/release/app-release.apk ../test-x86_64.apk
+
       - name: Tailles
-        run: ls -lh Trans-nayo*.apk
+        run: ls -lh *.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: Trans-nayo-apk
           path: trans-nayo/Trans-nayo*.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk-test-emulateur
+          path: trans-nayo/test-x86_64.apk
 
   smoke-test:
     needs: build
@@ -77,7 +90,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: Trans-nayo-apk
+          name: apk-test-emulateur
           path: apks
 
       - name: Activer KVM
@@ -86,7 +99,6 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # Les images Android 11 (API 30) x86_64 savent exécuter les applications ARM.
       - name: Tester l'APK sur un émulateur Android
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -95,7 +107,7 @@ jobs:
           target: google_apis
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: python3 trans-nayo/scripts/smoke_test.py apks/Trans-nayo.apk smoke
+          script: python3 trans-nayo/scripts/smoke_test.py apks/test-x86_64.apk smoke
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -112,6 +124,14 @@ jobs:
           name: Trans-nayo-apk
           path: apks
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: captures-emulateur
+          path: captures
+
+      - name: Regrouper les captures du test
+        run: cd captures && zip -q ../apks/captures-emulateur.zip *.png
+
       - name: Publier une release téléchargeable
         uses: softprops/action-gh-release@v2
         with:
@@ -122,11 +142,13 @@ jobs:
           files: |
             apks/Trans-nayo.apk
             apks/Trans-nayo-32bits.apk
+            apks/captures-emulateur.zip
           body: |
             APK Android de Trans-nayo, testé automatiquement sur un émulateur Android.
 
             - **Trans-nayo.apk** : pour la plupart des téléphones (64 bits).
             - **Trans-nayo-32bits.apk** : pour les anciens téléphones ou Android Go, si le premier refuse de s'installer.
+            - *captures-emulateur.zip* : captures d'écran du test automatique (inutile pour installer l'app).
 
             1. Ouvrez ce lien dans **Chrome** sur votre téléphone Android (de préférence en Wi-Fi).
             2. Touchez le fichier pour le télécharger, puis ouvrez-le.
