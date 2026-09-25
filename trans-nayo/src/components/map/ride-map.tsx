@@ -39,6 +39,8 @@ export function RideMap({ pickup, destination, driver, driverHeading = 0, route,
       style={[StyleSheet.absoluteFill, styles.map, style]}
       source={{ html, baseUrl: 'https://transnayo.app/' }}
       originWhitelist={['*']}
+      // Identifie l'application auprès du serveur de tuiles OpenStreetMap.
+      applicationNameForUserAgent="TransNayo/1.0"
       onMessage={(e) => {
         if (e.nativeEvent.data !== 'ready') return;
         ready.current = true;

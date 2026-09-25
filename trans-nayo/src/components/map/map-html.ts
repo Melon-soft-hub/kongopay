@@ -3,12 +3,13 @@ import { Colors } from '@/constants/colors';
 import { LEAFLET_CSS, LEAFLET_JS } from './leaflet-assets';
 
 /**
- * Tuiles CARTO (données OpenStreetMap), utilisables sans clé d'API.
- * Pour un usage commercial à grande échelle, passer à un fournisseur avec
- * contrat (MapTiler, Stadia Maps, Mapbox…) en changeant simplement cette URL.
+ * Tuiles OpenStreetMap standard, sans clé d'API (politique d'usage :
+ * https://operations.osmfoundation.org/policies/tiles/). Pour un usage
+ * commercial à grande échelle, passer à un fournisseur sous contrat
+ * (MapTiler, Stadia Maps, Mapbox…) en changeant simplement cette URL.
  */
-export const TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-const ATTRIBUTION = '© OpenStreetMap © CARTO';
+export const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const ATTRIBUTION = '© contributeurs OpenStreetMap';
 
 /**
  * Page HTML de la carte, chargée dans une WebView. React Native lui envoie
@@ -22,6 +23,8 @@ export function buildMapHtml(center: { latitude: number; longitude: number }): s
 <style>${LEAFLET_CSS}</style>
 <style>
   html, body, #map { margin: 0; padding: 0; width: 100%; height: 100%; background: #EEF0F5; }
+  /* Couleurs de la carte adoucies pour faire ressortir l'itinéraire et les marqueurs. */
+  .leaflet-tile-pane { filter: saturate(0.55) brightness(1.04); }
   .leaflet-control-attribution { font-size: 9px; background: rgba(255,255,255,0.7) !important; }
   .pin { box-sizing: border-box; }
   .pickup { width: 26px; height: 26px; border-radius: 13px; background: rgba(10,124,255,0.2); display: flex; align-items: center; justify-content: center; }
@@ -43,7 +46,7 @@ export function buildMapHtml(center: { latitude: number; longitude: number }): s
 
   var map = L.map('map', { zoomControl: false, attributionControl: true })
     .setView([${center.latitude}, ${center.longitude}], 14);
-  L.tileLayer('${TILE_URL}', { subdomains: 'abcd', maxZoom: 19, attribution: '${ATTRIBUTION}' }).addTo(map);
+  L.tileLayer('${TILE_URL}', { maxZoom: 19, attribution: '${ATTRIBUTION}' }).addTo(map);
   map.attributionControl.setPrefix(false);
 
   function icon(cls, size, html) {

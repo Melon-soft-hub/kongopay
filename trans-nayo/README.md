@@ -90,7 +90,7 @@ Cette version est une application front-end complète avec des données simulée
   et les chauffeurs fictifs de `src/constants/drivers.ts`.
 - **Itinéraires** : une API d'itinéraires (Google Directions, Mapbox, OSRM…) à la place de `buildRoute` dans `src/lib/geo.ts`.
 - **Paiements** : les API marchandes M-Pesa, Orange Money et Airtel Money (`src/app/topup.tsx`).
-- **Tuiles de carte** : la carte utilise les tuiles gratuites CARTO / OpenStreetMap, sans clé d'API.
+- **Tuiles de carte** : la carte utilise les tuiles OpenStreetMap standard, sans clé d'API.
   Pour un usage commercial à grande échelle, prendre un fournisseur sous contrat (MapTiler, Stadia Maps, Mapbox…)
   et changer `TILE_URL` dans `src/components/map/map-html.ts`.
 
