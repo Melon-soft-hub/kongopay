@@ -23,12 +23,15 @@ Les données (compte, solde, historique) sont conservées sur l'appareil avec As
 
 ## Télécharger l'application (Android)
 
-À chaque modification poussée, GitHub Actions compile un APK prêt à installer
-(workflow `.github/workflows/android-apk.yml`) et le publie dans l'onglet **Releases** du dépôt
-(pré-version `trans-nayo-build-N`, fichier **Trans-nayo.apk**). Il est aussi disponible dans les
-*artifacts* de l'exécution du workflow.
+À chaque modification poussée, GitHub Actions (workflow `.github/workflows/android-apk.yml`) :
 
-Sur le téléphone Android : téléchargez `Trans-nayo.apk`, ouvrez-le et autorisez l'installation
+1. compile deux APK optimisés : **Trans-nayo.apk** (téléphones 64 bits, la grande majorité)
+   et **Trans-nayo-32bits.apk** (anciens téléphones et Android Go) ;
+2. les teste sur un émulateur Android (`scripts/smoke_test.py` : inscription, accueil, commande d'une course) ;
+3. les publie dans l'onglet **Releases** du dépôt (pré-version `trans-nayo-build-N`).
+
+Sur le téléphone Android : ouvrez la page de la release dans **Chrome** (pas dans le navigateur
+intégré d'une autre application), téléchargez l'APK, ouvrez-le et autorisez l'installation
 depuis cette source si Android le demande.
 
 L'APK est signé avec la clé de débogage générée par Expo : parfait pour tester et distribuer

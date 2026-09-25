@@ -16,7 +16,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
     defaults:
       run:
         working-directory: trans-nayo
@@ -47,17 +47,70 @@ jobs:
       - name: Générer le projet Android
         run: npx expo prebuild --platform android --no-install
 
-      - name: Compiler l'APK (release)
+      # Un APK par architecture : chaque fichier est bien plus léger qu'un APK universel.
+      - name: Compiler l'APK 64 bits (téléphones récents)
         working-directory: trans-nayo/android
-        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+        run: |
+          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
+          cp app/build/outputs/apk/release/app-release.apk ../Trans-nayo.apk
 
-      - name: Renommer l'APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk Trans-nayo.apk
+      - name: Compiler l'APK 32 bits (anciens téléphones)
+        working-directory: trans-nayo/android
+        run: |
+          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=armeabi-v7a
+          cp app/build/outputs/apk/release/app-release.apk ../Trans-nayo-32bits.apk
+
+      - name: Tailles
+        run: ls -lh Trans-nayo*.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: Trans-nayo-apk
-          path: trans-nayo/Trans-nayo.apk
+          path: trans-nayo/Trans-nayo*.apk
+
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Trans-nayo-apk
+          path: apks
+
+      - name: Activer KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Les images Android 11 (API 30) x86_64 savent exécuter les applications ARM.
+      - name: Tester l'APK sur un émulateur Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: python3 trans-nayo/scripts/smoke_test.py apks/Trans-nayo.apk smoke
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: captures-emulateur
+          path: smoke/
+
+  release:
+    needs: [build, smoke-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Trans-nayo-apk
+          path: apks
 
       - name: Publier une release téléchargeable
         uses: softprops/action-gh-release@v2
@@ -66,12 +119,17 @@ jobs:
           name: Trans-nayo (build ${{ github.run_number }})
           target_commitish: ${{ github.sha }}
           prerelease: true
-          files: trans-nayo/Trans-nayo.apk
+          files: |
+            apks/Trans-nayo.apk
+            apks/Trans-nayo-32bits.apk
           body: |
-            APK Android de Trans-nayo, prêt à installer.
+            APK Android de Trans-nayo, testé automatiquement sur un émulateur Android.
 
-            1. Téléchargez **Trans-nayo.apk** ci-dessous depuis votre téléphone Android.
-            2. Ouvrez le fichier et autorisez l'installation depuis cette source si Android le demande.
-            3. Lancez Trans-nayo.
+            - **Trans-nayo.apk** : pour la plupart des téléphones (64 bits).
+            - **Trans-nayo-32bits.apk** : pour les anciens téléphones ou Android Go, si le premier refuse de s'installer.
+
+            1. Ouvrez ce lien dans **Chrome** sur votre téléphone Android (de préférence en Wi-Fi).
+            2. Touchez le fichier pour le télécharger, puis ouvrez-le.
+            3. Autorisez l'installation depuis cette source si Android le demande, puis lancez Trans-nayo.
 
             Commit : ${{ github.sha }}
