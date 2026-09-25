@@ -48,10 +48,19 @@ def wait_for(predicate, label, timeout=90):
                 return node
         time.sleep(2)
     screenshot(f'echec-{label}')
+    print('Textes visibles :', [n[0] for n in nodes() if n[0]])
     raise SystemExit(f'Élément introuvable : {label}')
 
 
+def hide_keyboard():
+    """Ferme le clavier s'il est ouvert, pour ne pas taper dessus par erreur."""
+    if 'mInputShown=true' in adb('shell', 'dumpsys', 'input_method', check=False):
+        adb('shell', 'input', 'keyevent', '4')
+        time.sleep(1)
+
+
 def tap_text(text, exact=True):
+    hide_keyboard()
     match = (lambda n: n[0] == text) if exact else (lambda n: n[0].startswith(text))
     node = wait_for(match, text)
     adb('shell', 'input', 'tap', str(node[2][0]), str(node[2][1]))
