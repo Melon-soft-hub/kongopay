@@ -1,72 +1,59 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
-import MapView, { Marker, Polyline, type MapStyleElement } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 
-import { Colors } from '@/constants/theme';
-
-import { DestinationPin, DriverPin, NearbyCarPin, PickupPin } from './map-markers';
+import { buildMapHtml } from './map-html';
 import type { RideMapProps } from './ride-map.types';
 
-const DELTA = 0.035;
-
-/** Style Google Maps épuré (Android) pour faire ressortir l'itinéraire. */
-const MAP_STYLE: MapStyleElement[] = [
-  { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
-  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#fdf3d3' }] },
-  { featureType: 'landscape', stylers: [{ color: '#f2f3f7' }] },
-  { featureType: 'water', stylers: [{ color: '#cfe4ff' }] },
-];
-
+/**
+ * Carte Leaflet + OpenStreetMap dans une WebView : aucune clé d'API requise,
+ * fonctionne à l'identique sur Android, iOS et dans Expo Go.
+ */
 export function RideMap({ pickup, destination, driver, driverHeading = 0, route, nearbyDrivers, bottomInset = 0, topInset = 0, style }: RideMapProps) {
-  const mapRef = useRef<MapView>(null);
+  const webRef = useRef<WebView>(null);
+  const ready = useRef(false);
+  // La page n'est construite qu'une fois ; les mises à jour passent par updateMap().
+  const [initialCenter] = useState(pickup);
+  const html = useMemo(() => buildMapHtml(initialCenter), [initialCenter]);
+
+  const payload = JSON.stringify({
+    pickup,
+    destination: destination ?? null,
+    driver: driver ?? null,
+    heading: driverHeading,
+    route: route ?? null,
+    nearby: nearbyDrivers ?? [],
+    top: topInset,
+    bottom: bottomInset,
+  });
+  const latest = useRef(payload);
 
   useEffect(() => {
-    const points = [pickup, destination, driver].filter((p): p is NonNullable<typeof p> => !!p);
-    if (points.length > 1) {
-      mapRef.current?.fitToCoordinates(points, {
-        edgePadding: { top: topInset + 80, right: 60, bottom: bottomInset + 60, left: 60 },
-        animated: true,
-      });
-    } else {
-      mapRef.current?.animateToRegion({ ...pickup, latitudeDelta: DELTA, longitudeDelta: DELTA }, 500);
-    }
-    // On ne recadre pas à chaque déplacement du chauffeur, seulement quand les points changent.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickup, destination, !!driver, bottomInset, topInset]);
+    latest.current = payload;
+    if (ready.current) webRef.current?.injectJavaScript(`window.updateMap(${payload}); true;`);
+  }, [payload]);
 
   return (
-    <MapView
-      ref={mapRef}
-      style={[StyleSheet.absoluteFill, style]}
-      initialRegion={{ ...pickup, latitudeDelta: DELTA, longitudeDelta: DELTA }}
-      customMapStyle={MAP_STYLE}
-      showsCompass={false}
-      toolbarEnabled={false}
-      showsPointsOfInterests={false}
-      userInterfaceStyle="light">
-      {route && route.length > 1 ? (
-        <Polyline coordinates={route} strokeColor={Colors.ink} strokeWidth={5} lineCap="round" lineJoin="round" />
-      ) : null}
-      {nearbyDrivers?.map((coord, i) => (
-        <Marker key={i} coordinate={coord} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-          <NearbyCarPin />
-        </Marker>
-      ))}
-      <Marker coordinate={pickup} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-        <PickupPin />
-      </Marker>
-      {destination ? (
-        <Marker coordinate={destination} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-          <DestinationPin />
-        </Marker>
-      ) : null}
-      {driver ? (
-        <Marker coordinate={driver} anchor={{ x: 0.5, y: 0.5 }} flat>
-          <DriverPin rotation={driverHeading} />
-        </Marker>
-      ) : null}
-    </MapView>
+    <WebView
+      ref={webRef}
+      style={[StyleSheet.absoluteFill, styles.map, style]}
+      source={{ html, baseUrl: 'https://transnayo.app/' }}
+      originWhitelist={['*']}
+      onMessage={(e) => {
+        if (e.nativeEvent.data !== 'ready') return;
+        ready.current = true;
+        webRef.current?.injectJavaScript(`window.updateMap(${latest.current}); true;`);
+      }}
+      scrollEnabled={false}
+      bounces={false}
+      overScrollMode="never"
+      setSupportMultipleWindows={false}
+      javaScriptEnabled
+      domStorageEnabled
+    />
   );
 }
+
+const styles = StyleSheet.create({
+  map: { backgroundColor: '#EEF0F5' },
+});

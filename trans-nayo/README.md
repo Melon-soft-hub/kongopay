@@ -21,6 +21,20 @@ Construite avec **React Native + Expo (SDK 57)** et **Expo Router** : un seul co
 
 Les données (compte, solde, historique) sont conservées sur l'appareil avec AsyncStorage.
 
+## Télécharger l'application (Android)
+
+À chaque modification poussée, GitHub Actions compile un APK prêt à installer
+(workflow `.github/workflows/android-apk.yml`) et le publie dans l'onglet **Releases** du dépôt
+(pré-version `trans-nayo-build-N`, fichier **Trans-nayo.apk**). Il est aussi disponible dans les
+*artifacts* de l'exécution du workflow.
+
+Sur le téléphone Android : téléchargez `Trans-nayo.apk`, ouvrez-le et autorisez l'installation
+depuis cette source si Android le demande.
+
+L'APK est signé avec la clé de débogage générée par Expo : parfait pour tester et distribuer
+directement. Pour le Google Play Store, il faut un build signé avec votre propre clé
+(`npx eas-cli@latest build -p android` produit un fichier `.aab` prêt pour le Play Store).
+
 ## Démarrer
 
 ```bash
@@ -51,7 +65,7 @@ src/
     search.tsx         Recherche de destination (modale)
     topup.tsx          Recharge du portefeuille (modale)
   components/
-    map/               Carte native (react-native-maps) et carte stylisée pour le web
+    map/               Carte Leaflet + OpenStreetMap (WebView) et carte stylisée pour le web
     ui/                Boutons, lignes de liste, avatar, logo…
   constants/           Thème, lieux, véhicules et tarifs, moyens de paiement, chauffeurs
   hooks/               Simulation du cycle de vie d'une course
@@ -73,7 +87,9 @@ Cette version est une application front-end complète avec des données simulée
   et les chauffeurs fictifs de `src/constants/drivers.ts`.
 - **Itinéraires** : une API d'itinéraires (Google Directions, Mapbox, OSRM…) à la place de `buildRoute` dans `src/lib/geo.ts`.
 - **Paiements** : les API marchandes M-Pesa, Orange Money et Airtel Money (`src/app/topup.tsx`).
-- **Google Maps sur Android** : définir `GOOGLE_MAPS_API_KEY` lors du build (voir `app.config.js`).
+- **Tuiles de carte** : la carte utilise les tuiles gratuites CARTO / OpenStreetMap, sans clé d'API.
+  Pour un usage commercial à grande échelle, prendre un fournisseur sous contrat (MapTiler, Stadia Maps, Mapbox…)
+  et changer `TILE_URL` dans `src/components/map/map-html.ts`.
 
 Build des applications avec EAS :
 
