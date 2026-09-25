@@ -1,0 +1,49 @@
+name: Trans-nayo test émulateur (APK existant)
+
+# Relance uniquement le test sur émulateur à partir d'un APK déjà compilé,
+# pour diagnostiquer rapidement sans recompiler.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "ID de l'exécution du workflow « Trans-nayo APK Android » contenant l'APK"
+        required: true
+  push:
+    branches: ['claude/trans-nayo-mobile-app-kwnqlg']
+    paths: ['.github/workflows/android-smoke.yml', 'trans-nayo/scripts/smoke_test.py']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RUN_ID: ${{ inputs.run_id || '36154018047' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Trans-nayo-apk
+          path: apks
+          run-id: ${{ env.RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Activer KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Tester l'APK sur un émulateur Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: python3 trans-nayo/scripts/smoke_test.py apks/Trans-nayo.apk smoke

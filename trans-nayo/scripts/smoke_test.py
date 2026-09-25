@@ -69,8 +69,14 @@ def type_into(index, value):
 
 def assert_alive():
     if not adb('shell', 'pidof', PACKAGE, check=False).strip():
-        dump_logs()
+        if not dump_logs():
+            log = adb('logcat', '-d', check=False).splitlines()
+            print('----- logcat (fin) -----')
+            print('\n'.join(l for l in log[-300:] if PACKAGE in l or ' E ' in l or ' F ' in l))
         raise SystemExit("L'application s'est arrêtée (plantage).")
+
+
+CRASH_TAGS = ('AndroidRuntime', 'ReactNativeJS', 'DEBUG', 'linker', 'libc', 'SoLoader', 'ReactNative', 'Expo', 'ActivityManager')
 
 
 def dump_logs():
@@ -78,12 +84,20 @@ def dump_logs():
     with open(os.path.join(OUT, 'logcat.txt'), 'w') as f:
         f.write(log)
     errors = [l for l in log.splitlines() if 'FATAL EXCEPTION' in l or ('ReactNativeJS' in l and ' E ' in l)]
+    if errors:
+        # Affiche le contexte dans les journaux du workflow pour faciliter le diagnostic.
+        relevant = [l for l in log.splitlines() if any(t in l for t in CRASH_TAGS) and (' E ' in l or ' F ' in l or 'FATAL' in l)]
+        print('----- logcat (erreurs) -----')
+        print('\n'.join(relevant[-150:]))
+        print('----------------------------')
     return errors
 
 
+print('ABI émulateur :', adb('shell', 'getprop', 'ro.product.cpu.abilist').strip())
 adb('install', '-r', APK)
 adb('logcat', '-c')
 adb('shell', 'monkey', '-p', PACKAGE, '-c', 'android.intent.category.LAUNCHER', '1')
+time.sleep(8)
 
 wait_for(lambda n: n[0] == 'Commencer', 'Commencer', timeout=120)
 screenshot('1-bienvenue')
